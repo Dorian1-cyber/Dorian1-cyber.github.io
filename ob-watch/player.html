@@ -1,0 +1,41 @@
+<!doctype html>
+<!--
+  OB Watch's phone player page. Obsidian on iPhone and iPad runs from capacitor://localhost, so an embedded
+  YouTube player gets no referrer and YouTube refuses it with Error 153. Served from an https address, this page
+  embeds the player instead (sending this page's address as the referrer) and passes YouTube's player messages
+  between OB Watch and the player unchanged. It reads only ?v=<11-character id>&start=<seconds>&autoplay=0|1.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>OB Watch player</title>
+<style>html,body{margin:0;height:100%;background:#000;color:#fff;font:14px system-ui,sans-serif;overflow:hidden}iframe{border:0;width:100%;height:100%;display:block}p{margin:0;padding:16px}</style>
+</head>
+<body>
+<script>
+(function () {
+  var YT = "https://www.youtube-nocookie.com";
+  var q = new URLSearchParams(location.search);
+  var id = q.get("v") || "";
+  if (!/^[A-Za-z0-9_-]{11}$/.test(id)) { var p = document.createElement("p"); p.textContent = "OB Watch: no video given."; document.body.appendChild(p); return; }
+  var start = Math.max(0, parseInt(q.get("start") || "0", 10) || 0);
+  var autoplay = q.get("autoplay") === "0" ? 0 : 1;
+  var f = document.createElement("iframe");
+  f.src = YT + "/embed/" + id + "?rel=0&playsinline=1&enablejsapi=1&autoplay=" + autoplay + (start >= 1 ? "&start=" + start : "") +
+    (/^https?:$/.test(location.protocol) ? "&origin=" + encodeURIComponent(location.origin) : "");
+  f.title = "YouTube video";
+  f.allow = "accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen";
+  f.allowFullscreen = true;
+  f.referrerPolicy = "strict-origin-when-cross-origin";
+  document.body.appendChild(f);
+  window.addEventListener("message", function (e) {
+    if (window.parent === window) return;
+    if (e.source === window.parent) { if (f.contentWindow) f.contentWindow.postMessage(e.data, YT); }
+    else if (e.source === f.contentWindow && e.origin === YT) window.parent.postMessage(e.data, "*");
+  });
+})();
+</script>
+</body>
+</html>
